@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- External files directory for pictures -->
+    <external-files-path
+        name="my_images"
+        path="Pictures" />
+
+    <!-- External files directory for movies/videos -->
+    <external-files-path
+        name="my_movies"
+        path="Movies" />
+
+    <!-- External files directory for documents -->
+    <external-files-path
+        name="my_documents"
+        path="Documents" />
+
+    <!-- External files directory for downloads -->
+    <external-files-path
+        name="my_downloads"
+        path="Download" />
+
+    <!-- External files directory for audio -->
+    <external-files-path
+        name="my_audio"
+        path="Music" />
+
+    <!-- Cache directory for temporary files -->
+    <cache-path
+        name="cache"
+        path="." />
+
+    <!-- Internal files directory -->
+    <files-path
+        name="internal_files"
+        path="." />
+
+    <!-- External storage root (for broader access) -->
+    <external-path
+        name="external_storage"
+        path="." />
+</paths>
