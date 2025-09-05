@@ -9,9 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.saha.composewebviewapptemplate.screens.WebViewScreen
-import com.saha.composewebviewapptemplate.screens.WebViewContent
-import com.saha.composewebviewapptemplate.screens.ContentType
 import com.saha.composewebviewapptemplate.ui.theme.ComposeWebViewAppTemplateTheme
+import com.saha.composewebviewapptemplate.utils.AppConstants
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,17 +19,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             ComposeWebViewAppTemplateTheme {
                 // Example 1: Load from URL
-                WebViewScreen("https://dubai-artists.i-mbu.online")
-                
+                WebViewScreen(AppConstants.APP_BASE_URL)
+
                 // Example 2: Load HTML content
                 //WebViewScreen(htmlContent = getSampleHTML())
-                
+
                 // Example 3: Load from assets
                 // WebViewScreen(WebViewContent(ContentType.ASSET, "sample.html"))
             }
         }
     }
-    
+
     // Sample HTML content
     private fun getSampleHTML(): String {
         return """
