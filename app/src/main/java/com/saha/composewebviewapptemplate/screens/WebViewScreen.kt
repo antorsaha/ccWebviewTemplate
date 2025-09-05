@@ -58,9 +58,27 @@ import java.util.Date
 import java.util.Locale
 import com.saha.composewebviewapptemplate.BuildConfig
 
+// Data class to define content type
+data class WebViewContent(
+    val type: ContentType,
+    val data: String,
+    val baseUrl: String? = null
+)
+
+enum class ContentType {
+    URL,        // Load from URL
+    HTML,       // Load HTML string
+    ASSET,      // Load from assets folder
+    FILE        // Load from local file
+}
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun WebViewScreen(webUrl: String) {
+fun WebViewScreen(
+    content: WebViewContent,
+    onPageFinished: ((String?) -> Unit)? = null,
+    onPageStarted: ((String?) -> Unit)? = null
+) {
     val context = LocalContext.current
     var isLoading by remember { mutableStateOf(true) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
@@ -183,7 +201,7 @@ fun WebViewScreen(webUrl: String) {
                             }
                         }
 
-                        // Enable cookies (this handles both first-party and third-party cookies)
+                        // Enable cookies
                         CookieManager.getInstance().setAcceptCookie(true)
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
 
@@ -260,11 +278,13 @@ fun WebViewScreen(webUrl: String) {
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
                                 isLoading = false
+                                onPageFinished?.invoke(url)
                             }
 
                             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                                 super.onPageStarted(view, url, favicon)
                                 isLoading = true
+                                onPageStarted?.invoke(url)
                             }
 
                             // Enhanced SSL error handling (more secure)
@@ -291,11 +311,53 @@ fun WebViewScreen(webUrl: String) {
                             }
                         }
 
-                        loadUrl(webUrl)
+                        // Load content based on type
+                        when (content.type) {
+                            ContentType.URL -> {
+                                loadUrl(content.data)
+                            }
+                            ContentType.HTML -> {
+                                loadDataWithBaseURL(
+                                    content.baseUrl,
+                                    content.data,
+                                    "text/html",
+                                    "UTF-8",
+                                    null
+                                )
+                            }
+                            ContentType.ASSET -> {
+                                loadUrl("file:///android_asset/${content.data}")
+                            }
+                            ContentType.FILE -> {
+                                loadUrl("file://${content.data}")
+                            }
+                        }
                     }
                 },
                 update = { webView -> webViewRef = webView }
             )
         }
     }
+}
+
+// Convenience functions for easy usage
+@Composable
+fun WebViewScreen(url: String) {
+    WebViewScreen(
+        content = WebViewContent(
+            type = ContentType.URL,
+            data = url
+        )
+    )
+}
+
+@Composable
+fun WebViewScreen(htmlContent: String, baseUrl: String? = null) {
+    WebViewScreen(
+        content = WebViewContent(
+            type = ContentType.HTML,
+            data = htmlContent,
+            baseUrl = baseUrl
+        )
+    )
 }
