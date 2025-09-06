@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -62,6 +63,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.content.FileProvider
 import com.saha.composewebviewapptemplate.BuildConfig
+import com.saha.composewebviewapptemplate.R
+import com.saha.composewebviewapptemplate.dialogs.ErrorDialog
 import kotlinx.coroutines.delay
 import java.io.File
 import java.text.SimpleDateFormat
@@ -154,7 +157,7 @@ fun WebViewScreen(
         } else if (retryCount >= maxRetries && !hasShownError) {
             // Only show error after all silent retries failed
             showError(WebViewError.CONNECTION_FAILED, 
-                "Unable to connect to the website. Please check your internet connection and try again.")
+                context.getString(R.string.unable_to_connect_to_website_please_check_your_internet_connection_and_try_again))
         }
     }
 
@@ -203,7 +206,7 @@ fun WebViewScreen(
         if (content.type == ContentType.URL && !isInternetAvailable()) {
             showError(
                 WebViewError.NO_INTERNET,
-                "No internet connection. Please check your network settings and try again."
+                context.getString(R.string.no_internet_connection_please_check_your_network_settings_and_try_again)
             )
         }
     }
@@ -244,7 +247,7 @@ fun WebViewScreen(
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(48.dp))
                     Text(
-                        text = if (isRetrying) "Connecting..." else "Loading...",
+                        text = if (isRetrying) stringResource(R.string.connecting) else stringResource(R.string.loading),
                         modifier = Modifier.padding(top = 16.dp),
                         style = MaterialTheme.typography.bodyLarge
                     )
@@ -378,7 +381,11 @@ fun WebViewScreen(
                                 override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                                     Log.d(
                                         "WebView",
-                                        "${consoleMessage?.message()} -- From line ${consoleMessage?.lineNumber()} of ${consoleMessage?.sourceId()}"
+                                        context.getString(R.string.console_message_from_line,
+                                            consoleMessage?.message() ?: "",
+                                            consoleMessage?.lineNumber() ?: 0,
+                                            consoleMessage?.sourceId() ?: ""
+                                        )
                                     )
                                     return true
                                 }
@@ -415,55 +422,56 @@ fun WebViewScreen(
                                     // Only handle main frame errors, ignore resource errors
                                     if (request?.isForMainFrame == true) {
                                         when (errorCode) {
-                                            WebViewClient.ERROR_HOST_LOOKUP -> {
+                                            ERROR_HOST_LOOKUP -> {
                                                 // Silent retry for host lookup errors
-                                                Log.w("WebView", "Host lookup failed, attempting silent retry")
+                                                Log.w("WebView", context.getString(R.string.host_lookup_failed_attempting_silent_retry))
                                                 retryCount++
                                             }
-                                            WebViewClient.ERROR_CONNECT -> {
+                                            ERROR_CONNECT -> {
                                                 // Silent retry for connection errors
-                                                Log.w("WebView", "Connection failed, attempting silent retry")
+                                                Log.w("WebView", context.getString(R.string.connection_failed_attempting_silent_retry))
                                                 retryCount++
                                             }
-                                            WebViewClient.ERROR_TIMEOUT -> {
+                                            ERROR_TIMEOUT -> {
                                                 // Silent retry for timeout errors
-                                                Log.w("WebView", "Connection timeout, attempting silent retry")
+                                                Log.w("WebView", context.getString(R.string.connection_timeout_attempting_silent_retry))
                                                 retryCount++
                                             }
-                                            WebViewClient.ERROR_IO -> {
+                                            ERROR_IO -> {
                                                 // Silent retry for IO errors
-                                                Log.w("WebView", "IO error, attempting silent retry")
+                                                Log.w("WebView", context.getString(R.string.io_error_attempting_silent_retry))
                                                 retryCount++
                                             }
-                                            WebViewClient.ERROR_BAD_URL -> {
+                                            ERROR_BAD_URL -> {
                                                 // Show error immediately for bad URLs
                                                 showError(WebViewError.UNKNOWN, 
-                                                    "Invalid website address. Please check the URL and try again.")
+                                                    context.getString(R.string.invalid_website_address_please_check_the_url_and_try_again))
                                             }
-                                            WebViewClient.ERROR_FILE_NOT_FOUND -> {
+                                            ERROR_FILE_NOT_FOUND -> {
                                                 // Silent retry for 404 errors (might be temporary)
-                                                Log.w("WebView", "File not found, attempting silent retry")
+                                                Log.w("WebView", context.getString(R.string.file_not_found_attempting_silent_retry))
                                                 retryCount++
                                             }
-                                            WebViewClient.ERROR_TOO_MANY_REQUESTS -> {
+                                            ERROR_TOO_MANY_REQUESTS -> {
                                                 // Silent retry with longer delay for rate limiting
-                                                Log.w("WebView", "Too many requests, attempting silent retry with delay")
+                                                Log.w("WebView", context.getString(R.string.too_many_requests_attempting_silent_retry_with_delay))
                                                 retryCount++
                                             }
-                                            WebViewClient.ERROR_UNSAFE_RESOURCE -> {
+                                            ERROR_UNSAFE_RESOURCE -> {
                                                 // Show error for unsafe resources
-                                                showError(WebViewError.SSL_ERROR, 
-                                                    "Unsafe content blocked for your security.")
+                                                showError(WebViewError.SSL_ERROR,
+                                                    context.getString(R.string.unsafe_content_blocked_for_security)
+                                                )
                                             }
                                             else -> {
                                                 // Silent retry for unknown errors
-                                                Log.w("WebView", "Unknown error $errorCode, attempting silent retry")
+                                                Log.w("WebView", context.getString(R.string.unknown_error_attempting_silent_retry, errorCode))
                                                 retryCount++
                                             }
                                         }
                                     } else {
                                         // Log resource errors but don't show to user
-                                        Log.d("WebView", "Resource error (ignored): $errorCode")
+                                        Log.d("WebView", context.getString(R.string.resource_error_ignored, errorCode))
                                     }
                                 }
 
@@ -484,7 +492,7 @@ fun WebViewScreen(
                                             SslError.SSL_EXPIRED,
                                             SslError.SSL_IDMISMATCH -> {
                                                 showError(WebViewError.SSL_ERROR, 
-                                                    "Security certificate error. The connection is not secure.")
+                                                    context.getString(R.string.security_certificate_error_connection_not_secure))
                                                 handler?.cancel()
                                             }
                                             else -> {
@@ -503,7 +511,7 @@ fun WebViewScreen(
                                     return try {
                                         super.shouldInterceptRequest(view, request)
                                     } catch (e: Exception) {
-                                        Log.w("WebView", "Error intercepting request: ${e.message}")
+                                        Log.w("WebView", context.getString(R.string.error_intercepting_request, e.message ?: ""))
                                         null
                                     }
                                 }
@@ -517,7 +525,7 @@ fun WebViewScreen(
                                             loadUrl(content.data)
                                         } else {
                                             showError(WebViewError.NO_INTERNET, 
-                                                "No internet connection. Please check your network settings and try again.")
+                                                context.getString(R.string.no_internet_connection_please_check_your_network_settings_and_try_again))
                                         }
                                     }
                                     ContentType.HTML -> {
@@ -537,7 +545,7 @@ fun WebViewScreen(
                                     }
                                 }
                             } catch (e: Exception) {
-                                Log.e("WebView", "Error loading content: ${e.message}")
+                                Log.e("WebView", context.getString(R.string.error_loading_content, e.message ?: ""))
                                 retryCount++
                             }
                         }
@@ -548,54 +556,28 @@ fun WebViewScreen(
 
             // Error Dialog - only shown for critical errors
             if (showErrorDialog) {
-                AlertDialog(
-                    onDismissRequest = { 
+                ErrorDialog(
+                    title = when (errorType) {
+                        WebViewError.NO_INTERNET -> stringResource(R.string.no_internet_connection)
+                        WebViewError.CONNECTION_FAILED -> stringResource(R.string.connection_failed)
+                        WebViewError.TIMEOUT -> stringResource(R.string.connection_timeout)
+                        WebViewError.SSL_ERROR -> stringResource(R.string.security_error)
+                        WebViewError.UNKNOWN -> stringResource(R.string.loading_error)
+                    },
+                    message = errorMessage,
+                    isCancellable = true,
+                    onDismissRequest = {
                         showErrorDialog = false
                         showWebView = true
                         resetErrorState()
                     },
-                    title = {
-                        Text(
-                            text = when (errorType) {
-                                WebViewError.NO_INTERNET -> "No Internet Connection"
-                                WebViewError.CONNECTION_FAILED -> "Connection Failed"
-                                WebViewError.TIMEOUT -> "Connection Timeout"
-                                WebViewError.SSL_ERROR -> "Security Error"
-                                WebViewError.UNKNOWN -> "Loading Error"
-                            },
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.headlineSmall
-                        )
+                    actionButtonText = stringResource(R.string.retry),
+                    onActionButtonClick = {
+                        showErrorDialog = false
+                        showWebView = true
+                        resetErrorState()
+                        webViewRef?.reload()
                     },
-                    text = {
-                        Text(
-                            text = errorMessage,
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = TextAlign.Start
-                        )
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = { 
-                                showErrorDialog = false
-                                showWebView = true
-                                resetErrorState()
-                                webViewRef?.reload()
-                            }
-                        ) {
-                            Text("Retry")
-                        }
-                    },
-                    dismissButton = {
-                        Button(
-                            onClick = { 
-                                showErrorDialog = false
-                                (context as? Activity)?.finish()
-                            }
-                        ) {
-                            Text("Close App")
-                        }
-                    }
                 )
             }
         }

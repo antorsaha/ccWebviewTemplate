@@ -73,9 +73,9 @@ fun AppNavigation() {
             }, onPageStarted = { url ->
                 // Handle page started
             }, onError = { errorType, message ->
-                navigationState = navigationState.copy(
+                /*navigationState = navigationState.copy(
                     currentScreen = Screen.Error, errorMessage = message
-                )
+                )*/
             })
         }
 

@@ -1,3 +1,38 @@
 <resources>
     <string name="app_name">WebView App</string>
+
+    <!-- Loading messages -->
+    <string name="loading">Loading...</string>
+    <string name="connecting">Connecting...</string>
+
+    <!-- Error dialog titles -->
+    <string name="no_internet_connection">No Internet Connection</string>
+    <string name="connection_failed">Connection Failed</string>
+    <string name="connection_timeout">Connection Timeout</string>
+    <string name="security_error">Security Error</string>
+    <string name="loading_error">Loading Error</string>
+
+    <!-- Error messages -->
+    <string name="no_internet_connection_please_check_your_network_settings_and_try_again">No internet connection. Please check your network settings and try again.</string>
+    <string name="unable_to_connect_to_website_please_check_your_internet_connection_and_try_again">Unable to connect to the website. Please check your internet connection and try again.</string>
+    <string name="invalid_website_address_please_check_the_url_and_try_again">Invalid website address. Please check the URL and try again.</string>
+    <string name="unsafe_content_blocked_for_security">Unsafe content blocked for your security.</string>
+    <string name="security_certificate_error_connection_not_secure">Security certificate error. The connection is not secure.</string>
+
+    <!-- Dialog buttons -->
+    <string name="retry">Retry</string>
+    <string name="close_app">Close App</string>
+
+    <!-- Log messages -->
+    <string name="host_lookup_failed_attempting_silent_retry">Host lookup failed, attempting silent retry</string>
+    <string name="connection_failed_attempting_silent_retry">Connection failed, attempting silent retry</string>
+    <string name="connection_timeout_attempting_silent_retry">Connection timeout, attempting silent retry</string>
+    <string name="io_error_attempting_silent_retry">IO error, attempting silent retry</string>
+    <string name="file_not_found_attempting_silent_retry">File not found, attempting silent retry</string>
+    <string name="too_many_requests_attempting_silent_retry_with_delay">Too many requests, attempting silent retry with delay</string>
+    <string name="unknown_error_attempting_silent_retry">Unknown error %1$d, attempting silent retry</string>
+    <string name="resource_error_ignored">Resource error (ignored): %1$d</string>
+    <string name="error_intercepting_request">Error intercepting request: %1$s</string>
+    <string name="error_loading_content">Error loading content: %1$s</string>
+    <string name="console_message_from_line">%1$s -- From line %2$d of %3$s</string>
 </resources>
