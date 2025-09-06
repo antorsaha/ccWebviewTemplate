@@ -22,8 +22,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.saha.composewebviewapptemplate.R
@@ -80,7 +82,7 @@ fun SplashScreen(
             
             // App Name
             Text(
-                text = "WebView App",
+                text = stringResource(R.string.app_name),
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -108,4 +110,10 @@ fun SplashScreen(
             }
         }
     }
+}
+
+@Preview
+@Composable
+fun PreviewSplashScreen() {
+    SplashScreen(onSplashFinished = {}, modifier = Modifier)
 }

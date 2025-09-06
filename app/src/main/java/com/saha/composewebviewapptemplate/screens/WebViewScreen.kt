@@ -1,3 +1,5 @@
+@file:Suppress("LABEL_NAME_CLASH")
+
 package com.saha.composewebviewapptemplate.screens
 
 import android.Manifest
@@ -10,6 +12,7 @@ import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.net.http.SslError
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -21,6 +24,7 @@ import android.webkit.PermissionRequest
 import android.webkit.SslErrorHandler
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -58,6 +62,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.content.FileProvider
 import com.saha.composewebviewapptemplate.BuildConfig
+import kotlinx.coroutines.delay
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -92,17 +97,19 @@ fun WebViewScreen(
     var isLoading by remember { mutableStateOf(true) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var showErrorDialog by remember { mutableStateOf(false) }
-    var showWebView by remember { mutableStateOf(true) } // Add this state
+    var showWebView by remember { mutableStateOf(true) }
     var errorType by remember { mutableStateOf(WebViewError.UNKNOWN) }
     var errorMessage by remember { mutableStateOf("") }
     var retryCount by remember { mutableStateOf(0) }
-    val maxRetries = 3
+    var isRetrying by remember { mutableStateOf(false) }
+    var hasShownError by remember { mutableStateOf(false) }
+    val maxRetries = 5 // Increased retries for better resilience
 
     // For file upload & camera
     var fileChooserCallback by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Check internet connection
+    // Enhanced internet connection check
     fun isInternetAvailable(): Boolean {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = connectivityManager.activeNetwork ?: return false
@@ -112,26 +119,42 @@ fun WebViewScreen(
                 networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
     }
 
-    // Show error dialog
+    // Only show critical errors to users
     fun showError(error: WebViewError, message: String) {
+        hasShownError = true
         errorType = error
         errorMessage = message
         showErrorDialog = true
-        showWebView = false // Hide WebView when error occurs
+        showWebView = false
         isLoading = false
+        isRetrying = false
         onError?.invoke(error, message)
     }
 
-    // Retry loading
-    fun retryLoading() {
-        if (retryCount < maxRetries) {
-            retryCount++
-            isLoading = true
-            showErrorDialog = false
-            showWebView = true // Show WebView again when retrying
+    // Reset error state for new loads
+    fun resetErrorState() {
+        hasShownError = false
+        retryCount = 0
+        isRetrying = false
+    }
+
+    // Silent retry mechanism using LaunchedEffect
+    LaunchedEffect(retryCount, isRetrying) {
+        if (retryCount > 0 && retryCount < maxRetries && !isRetrying && !hasShownError) {
+            isRetrying = true
+            
+            // Exponential backoff with jitter
+            val baseDelay = 1000L
+            val jitter = (0..500).random().toLong()
+            val delayMs = (baseDelay * Math.pow(1.5, (retryCount - 1).toDouble())).toLong() + jitter
+            
+            delay(delayMs)
             webViewRef?.reload()
-        } else {
-            showError(WebViewError.CONNECTION_FAILED, "Failed to load after $maxRetries attempts. Please check your internet connection and try again.")
+            isRetrying = false
+        } else if (retryCount >= maxRetries && !hasShownError) {
+            // Only show error after all silent retries failed
+            showError(WebViewError.CONNECTION_FAILED, 
+                "Unable to connect to the website. Please check your internet connection and try again.")
         }
     }
 
@@ -221,7 +244,7 @@ fun WebViewScreen(
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(48.dp))
                     Text(
-                        text = "Loading...",
+                        text = if (isRetrying) "Connecting..." else "Loading...",
                         modifier = Modifier.padding(top = 16.dp),
                         style = MaterialTheme.typography.bodyLarge
                     )
@@ -236,7 +259,7 @@ fun WebViewScreen(
                         WebView(context).apply {
                             webViewRef = this
 
-                            // Enhanced WebView settings
+                            // Enhanced WebView settings for maximum reliability
                             settings.apply {
                                 javaScriptEnabled = true
                                 domStorageEnabled = true
@@ -245,43 +268,55 @@ fun WebViewScreen(
                                 setSupportZoom(true)
                                 builtInZoomControls = true
                                 displayZoomControls = false
+                                
+                                // Enhanced caching and performance
                                 cacheMode = WebSettings.LOAD_DEFAULT
-
+                                
                                 // Enhanced security and compatibility
                                 mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                                 allowFileAccess = true
                                 allowContentAccess = true
 
+                                
                                 // Media and hardware acceleration
                                 mediaPlaybackRequiresUserGesture = false
                                 setGeolocationEnabled(true)
-
-                                // User agent (optional - can be customized)
-                                userAgentString =
-                                    "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
-
+                                
+                                // Enhanced user agent
+                                userAgentString = buildString {
+                                    append("Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}; Mobile) ")
+                                    append("AppleWebKit/537.36 (KHTML, like Gecko) ")
+                                    append("Chrome/120.0.0.0 Mobile Safari/537.36")
+                                }
+                                
                                 // Additional settings for better compatibility
                                 layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
-
-                                // Modern caching approach
-                                cacheMode = WebSettings.LOAD_DEFAULT
-
+                                
                                 // Enable safe browsing (API 26+)
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                     safeBrowsingEnabled = true
                                 }
+                                
+                                // Enhanced timeout settings
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    loadsImagesAutomatically = true
+                                }
                             }
 
-                            // Enable cookies
-                            CookieManager.getInstance().setAcceptCookie(true)
-                            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                            // Enable cookies with better management
+                            CookieManager.getInstance().apply {
+                                setAcceptCookie(true)
+                                flush()
+                            }
 
                             webChromeClient = object : WebChromeClient() {
                                 override fun onProgressChanged(view: WebView?, newProgress: Int) {
                                     super.onProgressChanged(view, newProgress)
                                     if (newProgress == 100) {
                                         isLoading = false
+                                        isRetrying = false
                                         retryCount = 0 // Reset retry count on successful load
+                                        hasShownError = false // Reset error state on success
                                     }
                                 }
 
@@ -353,6 +388,8 @@ fun WebViewScreen(
                                 override fun onPageFinished(view: WebView?, url: String?) {
                                     super.onPageFinished(view, url)
                                     isLoading = false
+                                    isRetrying = false
+                                    resetErrorState() // Reset error state on successful load
                                     onPageFinished?.invoke(url)
                                 }
 
@@ -366,92 +403,142 @@ fun WebViewScreen(
                                     onPageStarted?.invoke(url)
                                 }
 
+                                // Optimized error handling - only show critical errors
                                 override fun onReceivedError(
                                     view: WebView?,
                                     request: WebResourceRequest?,
-                                    error: android.webkit.WebResourceError?
+                                    error: WebResourceError?
                                 ) {
                                     super.onReceivedError(view, request, error)
                                     val errorCode = error?.errorCode ?: -1
-                                    val description = error?.description?.toString() ?: "Unknown error"
                                     
-                                    when (errorCode) {
-                                        ERROR_HOST_LOOKUP -> {
-                                            showError(WebViewError.CONNECTION_FAILED, "Cannot find server. Please check your internet connection and try again.")
+                                    // Only handle main frame errors, ignore resource errors
+                                    if (request?.isForMainFrame == true) {
+                                        when (errorCode) {
+                                            WebViewClient.ERROR_HOST_LOOKUP -> {
+                                                // Silent retry for host lookup errors
+                                                Log.w("WebView", "Host lookup failed, attempting silent retry")
+                                                retryCount++
+                                            }
+                                            WebViewClient.ERROR_CONNECT -> {
+                                                // Silent retry for connection errors
+                                                Log.w("WebView", "Connection failed, attempting silent retry")
+                                                retryCount++
+                                            }
+                                            WebViewClient.ERROR_TIMEOUT -> {
+                                                // Silent retry for timeout errors
+                                                Log.w("WebView", "Connection timeout, attempting silent retry")
+                                                retryCount++
+                                            }
+                                            WebViewClient.ERROR_IO -> {
+                                                // Silent retry for IO errors
+                                                Log.w("WebView", "IO error, attempting silent retry")
+                                                retryCount++
+                                            }
+                                            WebViewClient.ERROR_BAD_URL -> {
+                                                // Show error immediately for bad URLs
+                                                showError(WebViewError.UNKNOWN, 
+                                                    "Invalid website address. Please check the URL and try again.")
+                                            }
+                                            WebViewClient.ERROR_FILE_NOT_FOUND -> {
+                                                // Silent retry for 404 errors (might be temporary)
+                                                Log.w("WebView", "File not found, attempting silent retry")
+                                                retryCount++
+                                            }
+                                            WebViewClient.ERROR_TOO_MANY_REQUESTS -> {
+                                                // Silent retry with longer delay for rate limiting
+                                                Log.w("WebView", "Too many requests, attempting silent retry with delay")
+                                                retryCount++
+                                            }
+                                            WebViewClient.ERROR_UNSAFE_RESOURCE -> {
+                                                // Show error for unsafe resources
+                                                showError(WebViewError.SSL_ERROR, 
+                                                    "Unsafe content blocked for your security.")
+                                            }
+                                            else -> {
+                                                // Silent retry for unknown errors
+                                                Log.w("WebView", "Unknown error $errorCode, attempting silent retry")
+                                                retryCount++
+                                            }
                                         }
-                                        ERROR_CONNECT -> {
-                                            showError(WebViewError.CONNECTION_FAILED, "Cannot connect to server. Please check your internet connection.")
-                                        }
-                                        ERROR_TIMEOUT -> {
-                                            showError(WebViewError.TIMEOUT, "Connection timeout. Please try again.")
-                                        }
-                                        ERROR_IO -> {
-                                            showError(WebViewError.CONNECTION_FAILED, "Network error. Please check your internet connection.")
-                                        }
-                                        ERROR_BAD_URL -> {
-                                            showError(WebViewError.UNKNOWN, "Invalid URL. Please check the website address.")
-                                        }
-                                        ERROR_FILE_NOT_FOUND -> {
-                                            showError(WebViewError.CONNECTION_FAILED, "Page not found. The requested page does not exist.")
-                                        }
-                                        ERROR_TOO_MANY_REQUESTS -> {
-                                            showError(WebViewError.CONNECTION_FAILED, "Too many requests. Please wait a moment and try again.")
-                                        }
-                                        ERROR_UNSAFE_RESOURCE -> {
-                                            showError(WebViewError.SSL_ERROR, "Unsafe resource blocked. The content may be harmful.")
-                                        }
-
+                                    } else {
+                                        // Log resource errors but don't show to user
+                                        Log.d("WebView", "Resource error (ignored): $errorCode")
                                     }
                                 }
 
-                                // Enhanced SSL error handling (more secure)
+                                // Enhanced SSL error handling
                                 @SuppressLint("WebViewClientOnReceivedSslError")
                                 override fun onReceivedSslError(
                                     view: WebView?,
                                     handler: SslErrorHandler?,
-                                    error: android.net.http.SslError?
+                                    error: SslError?
                                 ) {
                                     if (BuildConfig.DEBUG) {
                                         handler?.proceed()
                                     } else {
-                                        showError(WebViewError.SSL_ERROR, "SSL certificate error. The connection is not secure.")
-                                        handler?.cancel()
+                                        // Only show SSL errors for critical issues
+                                        val sslError = error?.primaryError ?: -1
+                                        when (sslError) {
+                                            SslError.SSL_UNTRUSTED,
+                                            SslError.SSL_EXPIRED,
+                                            SslError.SSL_IDMISMATCH -> {
+                                                showError(WebViewError.SSL_ERROR, 
+                                                    "Security certificate error. The connection is not secure.")
+                                                handler?.cancel()
+                                            }
+                                            else -> {
+                                                // For other SSL errors, proceed silently
+                                                handler?.proceed()
+                                            }
+                                        }
                                     }
                                 }
 
-                                // Handle resource loading
+                                // Enhanced resource loading with error recovery
                                 override fun shouldInterceptRequest(
                                     view: WebView?,
                                     request: WebResourceRequest?
                                 ): WebResourceResponse? {
-                                    return super.shouldInterceptRequest(view, request)
+                                    return try {
+                                        super.shouldInterceptRequest(view, request)
+                                    } catch (e: Exception) {
+                                        Log.w("WebView", "Error intercepting request: ${e.message}")
+                                        null
+                                    }
                                 }
                             }
 
-                            // Load content based on type
-                            when (content.type) {
-                                ContentType.URL -> {
-                                    if (isInternetAvailable()) {
-                                        loadUrl(content.data)
-                                    } else {
-                                        showError(WebViewError.NO_INTERNET, "No internet connection. Please check your network settings and try again.")
+                            // Load content based on type with enhanced error handling
+                            try {
+                                when (content.type) {
+                                    ContentType.URL -> {
+                                        if (isInternetAvailable()) {
+                                            loadUrl(content.data)
+                                        } else {
+                                            showError(WebViewError.NO_INTERNET, 
+                                                "No internet connection. Please check your network settings and try again.")
+                                        }
+                                    }
+                                    ContentType.HTML -> {
+                                        loadDataWithBaseURL(
+                                            content.baseUrl,
+                                            content.data,
+                                            "text/html",
+                                            "UTF-8",
+                                            null
+                                        )
+                                    }
+                                    ContentType.ASSET -> {
+                                        loadUrl("file:///android_asset/${content.data}")
+                                    }
+                                    ContentType.FILE -> {
+                                        loadUrl("file://${content.data}")
                                     }
                                 }
-                                ContentType.HTML -> {
-                                    loadDataWithBaseURL(
-                                        content.baseUrl,
-                                        content.data,
-                                        "text/html",
-                                        "UTF-8",
-                                        null
-                                    )
-                                }
-                                ContentType.ASSET -> {
-                                    loadUrl("file:///android_asset/${content.data}")
-                                }
-                                ContentType.FILE -> {
-                                    loadUrl("file://${content.data}")
-                                }
+                            } catch (e: Exception) {
+                                Log.e("WebView", "Error loading content: ${e.message}")
+                                retryCount++
                             }
                         }
                     },
@@ -459,12 +546,13 @@ fun WebViewScreen(
                 )
             }
 
-            // Error Dialog
+            // Error Dialog - only shown for critical errors
             if (showErrorDialog) {
                 AlertDialog(
                     onDismissRequest = { 
                         showErrorDialog = false
-                        showWebView = true // Show WebView again when dialog is dismissed
+                        showWebView = true
+                        resetErrorState()
                     },
                     title = {
                         Text(
@@ -488,7 +576,12 @@ fun WebViewScreen(
                     },
                     confirmButton = {
                         Button(
-                            onClick = { retryLoading() }
+                            onClick = { 
+                                showErrorDialog = false
+                                showWebView = true
+                                resetErrorState()
+                                webViewRef?.reload()
+                            }
                         ) {
                             Text("Retry")
                         }
