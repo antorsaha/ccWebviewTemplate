@@ -53,4 +53,8 @@
     <string name="next">Next</string>
     <string name="get_started">Get Started</string>
     <string name="skip">Skip</string>
+
+    <!-- Debug and testing -->
+    <string name="reset_onboarding">Reset Onboarding</string>
+    <string name="onboarding_reset_success">Onboarding has been reset. Restart the app to see onboarding again.</string>
 </resources>
