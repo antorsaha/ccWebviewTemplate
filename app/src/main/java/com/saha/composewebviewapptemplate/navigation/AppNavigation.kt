@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import com.saha.composewebviewapptemplate.screens.ContentType
+import com.saha.composewebviewapptemplate.screens.OnboardingScreen
 import com.saha.composewebviewapptemplate.screens.SplashScreen
 import com.saha.composewebviewapptemplate.screens.WebViewContent
 import com.saha.composewebviewapptemplate.screens.WebViewScreen
@@ -18,6 +19,7 @@ import kotlinx.coroutines.delay
 
 sealed class Screen {
     object Splash : Screen()
+    object Onboarding : Screen()
     object WebView : Screen()
     object Error : Screen()
 }
@@ -25,7 +27,8 @@ sealed class Screen {
 data class NavigationState(
     val currentScreen: Screen = Screen.Splash,
     val isLoading: Boolean = true,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val hasSeenOnboarding: Boolean = false
 )
 
 @Composable
@@ -40,8 +43,13 @@ fun AppNavigation() {
             Screen.Splash -> {
                 delay(3000) // 3 seconds splash
                 navigationState = navigationState.copy(
-                    currentScreen = Screen.WebView, isLoading = false
+                    currentScreen = if (navigationState.hasSeenOnboarding) Screen.WebView else Screen.Onboarding,
+                    isLoading = false
                 )
+            }
+
+            Screen.Onboarding -> {
+                // Onboarding screen, no automatic navigation
             }
 
             Screen.WebView -> {
@@ -59,9 +67,21 @@ fun AppNavigation() {
             SplashScreen(
                 onSplashFinished = {
                     navigationState = navigationState.copy(
-                        currentScreen = Screen.WebView, isLoading = false
+                        currentScreen = if (navigationState.hasSeenOnboarding) Screen.WebView else Screen.Onboarding,
+                        isLoading = false
                     )
                 })
+        }
+
+        Screen.Onboarding -> {
+            OnboardingScreen(
+                onFinish = {
+                    navigationState = navigationState.copy(
+                        currentScreen = Screen.WebView,
+                        hasSeenOnboarding = true
+                    )
+                }
+            )
         }
 
         Screen.WebView -> {

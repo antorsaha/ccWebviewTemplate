@@ -35,4 +35,22 @@
     <string name="error_intercepting_request">Error intercepting request: %1$s</string>
     <string name="error_loading_content">Error loading content: %1$s</string>
     <string name="console_message_from_line">%1$s -- From line %2$d of %3$s</string>
+
+    <!-- Onboarding screens -->
+    <string name="onboarding_welcome_title">Welcome to Our App</string>
+    <string name="onboarding_welcome_subtitle">Discover amazing features and seamless experience</string>
+    <string name="onboarding_welcome_description">Get started with our powerful platform designed to make your life easier and more productive.</string>
+
+    <string name="onboarding_features_title">Powerful Features</string>
+    <string name="onboarding_features_subtitle">Everything you need in one place</string>
+    <string name="onboarding_features_description">Access advanced tools, real-time updates, and intuitive interface designed for modern users.</string>
+
+    <string name="onboarding_ready_title">You\'re All Set!</string>
+    <string name="onboarding_ready_subtitle">Ready to explore the possibilities</string>
+    <string name="onboarding_ready_description">Start your journey with us and experience the difference. Let\'s begin this amazing adventure together.</string>
+
+    <!-- Onboarding buttons -->
+    <string name="next">Next</string>
+    <string name="get_started">Get Started</string>
+    <string name="skip">Skip</string>
 </resources>
