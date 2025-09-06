@@ -296,25 +296,7 @@ fun WebViewScreen(
             if (showWebView) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     AndroidView(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .pointerInput(Unit) {
-                                detectDragGestures(
-                                    onDragStart = { offset ->
-                                        isPulling = true
-                                    },
-                                    onDragEnd = {
-                                        handlePullToRefresh()
-                                        isPulling = false
-                                        pullOffset = 0f
-                                    },
-                                    onDrag = { change, _ ->
-                                        if (isPulling && change.position.y > 0) {
-                                            pullOffset = change.position.y.coerceAtLeast(0f)
-                                        }
-                                    }
-                                )
-                            },
+                        modifier = Modifier.fillMaxSize(),
                         factory = { context ->
                             WebView(context).apply {
                                 webViewRef = this
@@ -612,8 +594,8 @@ fun WebViewScreen(
                         update = { webView -> webViewRef = webView }
                     )
 
-                    // Custom pull-to-refresh indicator
-                    if (isPulling || isRefreshing) {
+                    // Custom pull-to-refresh indicator - only show when at top and pulling
+                    if ((isPulling || isRefreshing) && pullOffset > 0) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
