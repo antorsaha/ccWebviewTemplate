@@ -33,7 +33,10 @@ import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -54,6 +57,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -106,6 +112,9 @@ fun WebViewScreen(
     var retryCount by remember { mutableStateOf(0) }
     var isRetrying by remember { mutableStateOf(false) }
     var hasShownError by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    var pullOffset by remember { mutableStateOf(0f) }
+    var isPulling by remember { mutableStateOf(false) }
     val maxRetries = 5 // Increased retries for better resilience
 
     // For file upload & camera
@@ -131,6 +140,7 @@ fun WebViewScreen(
         showWebView = false
         isLoading = false
         isRetrying = false
+        isRefreshing = false
         onError?.invoke(error, message)
     }
 
@@ -139,6 +149,14 @@ fun WebViewScreen(
         hasShownError = false
         retryCount = 0
         isRetrying = false
+    }
+
+    // Handle pull to refresh
+    fun handlePullToRefresh() {
+        if (pullOffset > 100f && !isRefreshing) {
+            isRefreshing = true
+            webViewRef?.reload()
+        }
     }
 
     // Silent retry mechanism using LaunchedEffect
@@ -256,302 +274,351 @@ fun WebViewScreen(
 
             // Only show WebView when there's no error
             if (showWebView) {
-                AndroidView(
-                    modifier = Modifier.fillMaxSize(),
-                    factory = { context ->
-                        WebView(context).apply {
-                            webViewRef = this
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AndroidView(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                detectDragGestures(
+                                    onDragStart = { offset ->
+                                        isPulling = true
+                                    },
+                                    onDragEnd = {
+                                        handlePullToRefresh()
+                                        isPulling = false
+                                        pullOffset = 0f
+                                    },
+                                    onDrag = { change, _ ->
+                                        if (isPulling && change.position.y > 0) {
+                                            pullOffset = change.position.y.coerceAtLeast(0f)
+                                        }
+                                    }
+                                )
+                            },
+                        factory = { context ->
+                            WebView(context).apply {
+                                webViewRef = this
 
-                            // Enhanced WebView settings for maximum reliability
-                            settings.apply {
-                                javaScriptEnabled = true
-                                domStorageEnabled = true
-                                loadWithOverviewMode = true
-                                useWideViewPort = true
-                                setSupportZoom(true)
-                                builtInZoomControls = true
-                                displayZoomControls = false
-                                
-                                // Enhanced caching and performance
-                                cacheMode = WebSettings.LOAD_DEFAULT
-                                
-                                // Enhanced security and compatibility
-                                mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                                allowFileAccess = true
-                                allowContentAccess = true
+                                // Enhanced WebView settings for maximum reliability
+                                settings.apply {
+                                    javaScriptEnabled = true
+                                    domStorageEnabled = true
+                                    loadWithOverviewMode = true
+                                    useWideViewPort = true
+                                    setSupportZoom(true)
+                                    builtInZoomControls = true
+                                    displayZoomControls = false
+                                    
+                                    // Enhanced caching and performance
+                                    cacheMode = WebSettings.LOAD_DEFAULT
+                                    
+                                    // Enhanced security and compatibility
+                                    mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                                    allowFileAccess = true
+                                    allowContentAccess = true
 
-                                
-                                // Media and hardware acceleration
-                                mediaPlaybackRequiresUserGesture = false
-                                setGeolocationEnabled(true)
-                                
-                                // Enhanced user agent
-                                userAgentString = buildString {
-                                    append("Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}; Mobile) ")
-                                    append("AppleWebKit/537.36 (KHTML, like Gecko) ")
-                                    append("Chrome/120.0.0.0 Mobile Safari/537.36")
+                                    
+                                    // Media and hardware acceleration
+                                    mediaPlaybackRequiresUserGesture = false
+                                    setGeolocationEnabled(true)
+                                    
+                                    // Enhanced user agent
+                                    userAgentString = buildString {
+                                        append("Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}; Mobile) ")
+                                        append("AppleWebKit/537.36 (KHTML, like Gecko) ")
+                                        append("Chrome/120.0.0.0 Mobile Safari/537.36")
+                                    }
+                                    
+                                    // Additional settings for better compatibility
+                                    layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
+                                    
+                                    // Enable safe browsing (API 26+)
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        safeBrowsingEnabled = true
+                                    }
+                                    
+                                    // Enhanced timeout settings
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        loadsImagesAutomatically = true
+                                    }
                                 }
-                                
-                                // Additional settings for better compatibility
-                                layoutAlgorithm = WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
-                                
-                                // Enable safe browsing (API 26+)
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    safeBrowsingEnabled = true
-                                }
-                                
-                                // Enhanced timeout settings
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    loadsImagesAutomatically = true
-                                }
-                            }
 
-                            // Enable cookies with better management
-                            CookieManager.getInstance().apply {
-                                setAcceptCookie(true)
-                                flush()
-                            }
+                                // Enable cookies with better management
+                                CookieManager.getInstance().apply {
+                                    setAcceptCookie(true)
+                                    flush()
+                                }
 
-                            webChromeClient = object : WebChromeClient() {
-                                override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                                    super.onProgressChanged(view, newProgress)
-                                    if (newProgress == 100) {
+                                webChromeClient = object : WebChromeClient() {
+                                    override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                        super.onProgressChanged(view, newProgress)
+                                        if (newProgress == 100) {
+                                            isLoading = false
+                                            isRetrying = false
+                                            isRefreshing = false // Stop refresh indicator when page loads
+                                            retryCount = 0 // Reset retry count on successful load
+                                            hasShownError = false // Reset error state on success
+                                        }
+                                    }
+
+                                    // Geolocation support
+                                    override fun onGeolocationPermissionsShowPrompt(
+                                        origin: String?, callback: GeolocationPermissions.Callback?
+                                    ) {
+                                        callback?.invoke(origin, true, false)
+                                    }
+
+                                    // Permission requests (for WebRTC, etc.)
+                                    override fun onPermissionRequest(request: PermissionRequest?) {
+                                        request?.grant(request.resources)
+                                    }
+
+                                    // File chooser
+                                    override fun onShowFileChooser(
+                                        webView: WebView?,
+                                        filePathCallback: ValueCallback<Array<Uri>>?,
+                                        fileChooserParams: FileChooserParams?
+                                    ): Boolean {
+                                        fileChooserCallback?.onReceiveValue(null)
+                                        fileChooserCallback = filePathCallback
+
+                                        // Camera intent
+                                        val timeStamp =
+                                            SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                                        val imageFile = File.createTempFile(
+                                            "JPEG_${timeStamp}_",
+                                            ".jpg",
+                                            context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+                                        )
+                                        cameraImageUri = FileProvider.getUriForFile(
+                                            context, "${context.packageName}.provider", imageFile
+                                        )
+                                        val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                                            putExtra(MediaStore.EXTRA_OUTPUT, cameraImageUri)
+                                        }
+
+                                        // File chooser intent
+                                        val contentIntent = fileChooserParams?.createIntent()
+
+                                        // Combine
+                                        val chooserIntent = Intent(Intent.ACTION_CHOOSER).apply {
+                                            putExtra(Intent.EXTRA_INTENT, contentIntent)
+                                            putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(cameraIntent))
+                                        }
+
+                                        try {
+                                            fileChooserLauncher.launch(chooserIntent)
+                                        } catch (e: ActivityNotFoundException) {
+                                            fileChooserCallback = null
+                                            return false
+                                        }
+                                        return true
+                                    }
+
+                                    // Console messages for debugging
+                                    override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                                        Log.d(
+                                            "WebView",
+                                            context.getString(R.string.console_message_from_line,
+                                                consoleMessage?.message() ?: "",
+                                                consoleMessage?.lineNumber() ?: 0,
+                                                consoleMessage?.sourceId() ?: ""
+                                            )
+                                        )
+                                        return true
+                                    }
+                                }
+
+                                webViewClient = object : WebViewClient() {
+                                    override fun onPageFinished(view: WebView?, url: String?) {
+                                        super.onPageFinished(view, url)
                                         isLoading = false
                                         isRetrying = false
-                                        retryCount = 0 // Reset retry count on successful load
-                                        hasShownError = false // Reset error state on success
-                                    }
-                                }
-
-                                // Geolocation support
-                                override fun onGeolocationPermissionsShowPrompt(
-                                    origin: String?, callback: GeolocationPermissions.Callback?
-                                ) {
-                                    callback?.invoke(origin, true, false)
-                                }
-
-                                // Permission requests (for WebRTC, etc.)
-                                override fun onPermissionRequest(request: PermissionRequest?) {
-                                    request?.grant(request.resources)
-                                }
-
-                                // File chooser
-                                override fun onShowFileChooser(
-                                    webView: WebView?,
-                                    filePathCallback: ValueCallback<Array<Uri>>?,
-                                    fileChooserParams: FileChooserParams?
-                                ): Boolean {
-                                    fileChooserCallback?.onReceiveValue(null)
-                                    fileChooserCallback = filePathCallback
-
-                                    // Camera intent
-                                    val timeStamp =
-                                        SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-                                    val imageFile = File.createTempFile(
-                                        "JPEG_${timeStamp}_",
-                                        ".jpg",
-                                        context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-                                    )
-                                    cameraImageUri = FileProvider.getUriForFile(
-                                        context, "${context.packageName}.provider", imageFile
-                                    )
-                                    val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
-                                        putExtra(MediaStore.EXTRA_OUTPUT, cameraImageUri)
+                                        isRefreshing = false // Stop refresh indicator when page finishes
+                                        resetErrorState() // Reset error state on successful load
+                                        onPageFinished?.invoke(url)
                                     }
 
-                                    // File chooser intent
-                                    val contentIntent = fileChooserParams?.createIntent()
-
-                                    // Combine
-                                    val chooserIntent = Intent(Intent.ACTION_CHOOSER).apply {
-                                        putExtra(Intent.EXTRA_INTENT, contentIntent)
-                                        putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(cameraIntent))
+                                    override fun onPageStarted(
+                                        view: WebView?,
+                                        url: String?,
+                                        favicon: Bitmap?
+                                    ) {
+                                        super.onPageStarted(view, url, favicon)
+                                        isLoading = true
+                                        onPageStarted?.invoke(url)
                                     }
 
-                                    try {
-                                        fileChooserLauncher.launch(chooserIntent)
-                                    } catch (e: ActivityNotFoundException) {
-                                        fileChooserCallback = null
-                                        return false
-                                    }
-                                    return true
-                                }
-
-                                // Console messages for debugging
-                                override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                                    Log.d(
-                                        "WebView",
-                                        context.getString(R.string.console_message_from_line,
-                                            consoleMessage?.message() ?: "",
-                                            consoleMessage?.lineNumber() ?: 0,
-                                            consoleMessage?.sourceId() ?: ""
-                                        )
-                                    )
-                                    return true
-                                }
-                            }
-
-                            webViewClient = object : WebViewClient() {
-                                override fun onPageFinished(view: WebView?, url: String?) {
-                                    super.onPageFinished(view, url)
-                                    isLoading = false
-                                    isRetrying = false
-                                    resetErrorState() // Reset error state on successful load
-                                    onPageFinished?.invoke(url)
-                                }
-
-                                override fun onPageStarted(
-                                    view: WebView?,
-                                    url: String?,
-                                    favicon: Bitmap?
-                                ) {
-                                    super.onPageStarted(view, url, favicon)
-                                    isLoading = true
-                                    onPageStarted?.invoke(url)
-                                }
-
-                                // Optimized error handling - only show critical errors
-                                override fun onReceivedError(
-                                    view: WebView?,
-                                    request: WebResourceRequest?,
-                                    error: WebResourceError?
-                                ) {
-                                    super.onReceivedError(view, request, error)
-                                    val errorCode = error?.errorCode ?: -1
-                                    
-                                    // Only handle main frame errors, ignore resource errors
-                                    if (request?.isForMainFrame == true) {
-                                        when (errorCode) {
-                                            ERROR_HOST_LOOKUP -> {
-                                                // Silent retry for host lookup errors
-                                                Log.w("WebView", context.getString(R.string.host_lookup_failed_attempting_silent_retry))
-                                                retryCount++
+                                    // Optimized error handling - only show critical errors
+                                    override fun onReceivedError(
+                                        view: WebView?,
+                                        request: WebResourceRequest?,
+                                        error: WebResourceError?
+                                    ) {
+                                        super.onReceivedError(view, request, error)
+                                        val errorCode = error?.errorCode ?: -1
+                                        
+                                        // Only handle main frame errors, ignore resource errors
+                                        if (request?.isForMainFrame == true) {
+                                            when (errorCode) {
+                                                ERROR_HOST_LOOKUP -> {
+                                                    // Silent retry for host lookup errors
+                                                    Log.w("WebView", context.getString(R.string.host_lookup_failed_attempting_silent_retry))
+                                                    retryCount++
+                                                }
+                                                ERROR_CONNECT -> {
+                                                    // Silent retry for connection errors
+                                                    Log.w("WebView", context.getString(R.string.connection_failed_attempting_silent_retry))
+                                                    retryCount++
+                                                }
+                                                ERROR_TIMEOUT -> {
+                                                    // Silent retry for timeout errors
+                                                    Log.w("WebView", context.getString(R.string.connection_timeout_attempting_silent_retry))
+                                                    retryCount++
+                                                }
+                                                ERROR_IO -> {
+                                                    // Silent retry for IO errors
+                                                    Log.w("WebView", context.getString(R.string.io_error_attempting_silent_retry))
+                                                    retryCount++
+                                                }
+                                                ERROR_BAD_URL -> {
+                                                    // Show error immediately for bad URLs
+                                                    showError(WebViewError.UNKNOWN, 
+                                                        context.getString(R.string.invalid_website_address_please_check_the_url_and_try_again))
+                                                }
+                                                ERROR_FILE_NOT_FOUND -> {
+                                                    // Silent retry for 404 errors (might be temporary)
+                                                    Log.w("WebView", context.getString(R.string.file_not_found_attempting_silent_retry))
+                                                    retryCount++
+                                                }
+                                                ERROR_TOO_MANY_REQUESTS -> {
+                                                    // Silent retry with longer delay for rate limiting
+                                                    Log.w("WebView", context.getString(R.string.too_many_requests_attempting_silent_retry_with_delay))
+                                                    retryCount++
+                                                }
+                                                ERROR_UNSAFE_RESOURCE -> {
+                                                    // Show error for unsafe resources
+                                                    showError(WebViewError.SSL_ERROR,
+                                                        context.getString(R.string.unsafe_content_blocked_for_security)
+                                                    )
+                                                }
+                                                else -> {
+                                                    // Silent retry for unknown errors
+                                                    Log.w("WebView", context.getString(R.string.unknown_error_attempting_silent_retry, errorCode))
+                                                    retryCount++
+                                                }
                                             }
-                                            ERROR_CONNECT -> {
-                                                // Silent retry for connection errors
-                                                Log.w("WebView", context.getString(R.string.connection_failed_attempting_silent_retry))
-                                                retryCount++
-                                            }
-                                            ERROR_TIMEOUT -> {
-                                                // Silent retry for timeout errors
-                                                Log.w("WebView", context.getString(R.string.connection_timeout_attempting_silent_retry))
-                                                retryCount++
-                                            }
-                                            ERROR_IO -> {
-                                                // Silent retry for IO errors
-                                                Log.w("WebView", context.getString(R.string.io_error_attempting_silent_retry))
-                                                retryCount++
-                                            }
-                                            ERROR_BAD_URL -> {
-                                                // Show error immediately for bad URLs
-                                                showError(WebViewError.UNKNOWN, 
-                                                    context.getString(R.string.invalid_website_address_please_check_the_url_and_try_again))
-                                            }
-                                            ERROR_FILE_NOT_FOUND -> {
-                                                // Silent retry for 404 errors (might be temporary)
-                                                Log.w("WebView", context.getString(R.string.file_not_found_attempting_silent_retry))
-                                                retryCount++
-                                            }
-                                            ERROR_TOO_MANY_REQUESTS -> {
-                                                // Silent retry with longer delay for rate limiting
-                                                Log.w("WebView", context.getString(R.string.too_many_requests_attempting_silent_retry_with_delay))
-                                                retryCount++
-                                            }
-                                            ERROR_UNSAFE_RESOURCE -> {
-                                                // Show error for unsafe resources
-                                                showError(WebViewError.SSL_ERROR,
-                                                    context.getString(R.string.unsafe_content_blocked_for_security)
-                                                )
-                                            }
-                                            else -> {
-                                                // Silent retry for unknown errors
-                                                Log.w("WebView", context.getString(R.string.unknown_error_attempting_silent_retry, errorCode))
-                                                retryCount++
-                                            }
-                                        }
-                                    } else {
-                                        // Log resource errors but don't show to user
-                                        Log.d("WebView", context.getString(R.string.resource_error_ignored, errorCode))
-                                    }
-                                }
-
-                                // Enhanced SSL error handling
-                                @SuppressLint("WebViewClientOnReceivedSslError")
-                                override fun onReceivedSslError(
-                                    view: WebView?,
-                                    handler: SslErrorHandler?,
-                                    error: SslError?
-                                ) {
-                                    if (BuildConfig.DEBUG) {
-                                        handler?.proceed()
-                                    } else {
-                                        // Only show SSL errors for critical issues
-                                        val sslError = error?.primaryError ?: -1
-                                        when (sslError) {
-                                            SslError.SSL_UNTRUSTED,
-                                            SslError.SSL_EXPIRED,
-                                            SslError.SSL_IDMISMATCH -> {
-                                                showError(WebViewError.SSL_ERROR, 
-                                                    context.getString(R.string.security_certificate_error_connection_not_secure))
-                                                handler?.cancel()
-                                            }
-                                            else -> {
-                                                // For other SSL errors, proceed silently
-                                                handler?.proceed()
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Enhanced resource loading with error recovery
-                                override fun shouldInterceptRequest(
-                                    view: WebView?,
-                                    request: WebResourceRequest?
-                                ): WebResourceResponse? {
-                                    return try {
-                                        super.shouldInterceptRequest(view, request)
-                                    } catch (e: Exception) {
-                                        Log.w("WebView", context.getString(R.string.error_intercepting_request, e.message ?: ""))
-                                        null
-                                    }
-                                }
-                            }
-
-                            // Load content based on type with enhanced error handling
-                            try {
-                                when (content.type) {
-                                    ContentType.URL -> {
-                                        if (isInternetAvailable()) {
-                                            loadUrl(content.data)
                                         } else {
-                                            showError(WebViewError.NO_INTERNET, 
-                                                context.getString(R.string.no_internet_connection_please_check_your_network_settings_and_try_again))
+                                            // Log resource errors but don't show to user
+                                            Log.d("WebView", context.getString(R.string.resource_error_ignored, errorCode))
                                         }
                                     }
-                                    ContentType.HTML -> {
-                                        loadDataWithBaseURL(
-                                            content.baseUrl,
-                                            content.data,
-                                            "text/html",
-                                            "UTF-8",
+
+                                    // Enhanced SSL error handling
+                                    @SuppressLint("WebViewClientOnReceivedSslError")
+                                    override fun onReceivedSslError(
+                                        view: WebView?,
+                                        handler: SslErrorHandler?,
+                                        error: SslError?
+                                    ) {
+                                        if (BuildConfig.DEBUG) {
+                                            handler?.proceed()
+                                        } else {
+                                            // Only show SSL errors for critical issues
+                                            val sslError = error?.primaryError ?: -1
+                                            when (sslError) {
+                                                SslError.SSL_UNTRUSTED,
+                                                SslError.SSL_EXPIRED,
+                                                SslError.SSL_IDMISMATCH -> {
+                                                    showError(WebViewError.SSL_ERROR, 
+                                                        context.getString(R.string.security_certificate_error_connection_not_secure))
+                                                    handler?.cancel()
+                                                }
+                                                else -> {
+                                                    // For other SSL errors, proceed silently
+                                                    handler?.proceed()
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Enhanced resource loading with error recovery
+                                    override fun shouldInterceptRequest(
+                                        view: WebView?,
+                                        request: WebResourceRequest?
+                                    ): WebResourceResponse? {
+                                        return try {
+                                            super.shouldInterceptRequest(view, request)
+                                        } catch (e: Exception) {
+                                            Log.w("WebView", context.getString(R.string.error_intercepting_request, e.message ?: ""))
                                             null
-                                        )
-                                    }
-                                    ContentType.ASSET -> {
-                                        loadUrl("file:///android_asset/${content.data}")
-                                    }
-                                    ContentType.FILE -> {
-                                        loadUrl("file://${content.data}")
+                                        }
                                     }
                                 }
-                            } catch (e: Exception) {
-                                Log.e("WebView", context.getString(R.string.error_loading_content, e.message ?: ""))
-                                retryCount++
+
+                                // Load content based on type with enhanced error handling
+                                try {
+                                    when (content.type) {
+                                        ContentType.URL -> {
+                                            if (isInternetAvailable()) {
+                                                loadUrl(content.data)
+                                            } else {
+                                                showError(WebViewError.NO_INTERNET, 
+                                                    context.getString(R.string.no_internet_connection_please_check_your_network_settings_and_try_again))
+                                            }
+                                        }
+                                        ContentType.HTML -> {
+                                            loadDataWithBaseURL(
+                                                content.baseUrl,
+                                                content.data,
+                                                "text/html",
+                                                "UTF-8",
+                                                null
+                                            )
+                                        }
+                                        ContentType.ASSET -> {
+                                            loadUrl("file:///android_asset/${content.data}")
+                                        }
+                                        ContentType.FILE -> {
+                                            loadUrl("file://${content.data}")
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("WebView", context.getString(R.string.error_loading_content, e.message ?: ""))
+                                    retryCount++
+                                }
+                            }
+                        },
+                        update = { webView -> webViewRef = webView }
+                    )
+
+                    // Custom pull-to-refresh indicator
+                    if (isPulling || isRefreshing) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 16.dp)
+                                .alpha(if (isRefreshing) 1f else (pullOffset / 100f).coerceIn(0f, 1f))
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                if (isRefreshing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Text(
+                                        text = if (pullOffset > 100f) "Release to refresh" else "Pull to refresh",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
                         }
-                    },
-                    update = { webView -> webViewRef = webView }
-                )
+                    }
+                }
             }
 
             // Error Dialog - only shown for critical errors
@@ -577,7 +644,7 @@ fun WebViewScreen(
                         showWebView = true
                         resetErrorState()
                         webViewRef?.reload()
-                    },
+                    }
                 )
             }
         }
