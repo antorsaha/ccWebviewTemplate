@@ -54,6 +54,18 @@
     <string name="get_started">Get Started</string>
     <string name="skip">Skip</string>
 
+    <!-- Update related strings -->
+    <string name="update_available">Update Available</string>
+    <string name="update_available_message">A new version of the app is available.\n\nVersion: %1$d\nThis update includes bug fixes and improvements.</string>
+    <string name="update_now">Update Now</string>
+    <string name="update_later">Later</string>
+    <string name="updating_app">Updating App</string>
+    <string name="update_progress_message">Please wait while the app updates...\nProgress: %1$d%%</string>
+    <string name="cancel">Cancel</string>
+    <string name="update_completed">Update Completed</string>
+    <string name="update_failed">Update Failed</string>
+    <string name="checking_for_updates">Checking for updates...</string>
+
     <!-- Debug and testing -->
     <string name="reset_onboarding">Reset Onboarding</string>
     <string name="onboarding_reset_success">Onboarding has been reset. Restart the app to see onboarding again.</string>
