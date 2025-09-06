@@ -1,6 +1,5 @@
 package com.saha.composewebviewapptemplate.navigation
 
-import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -63,14 +62,14 @@ data class NavigationState(
 
 /**
  * Main navigation composable that manages the entire app flow
- * 
+ *
  * Features:
  * - Automatic onboarding detection (first launch only)
  * - SharedPreferences integration for state persistence
  * - In-app update checking and management
  * - Smooth transitions between screens
  * - Error handling and recovery
- * 
+ *
  * Flow:
  * Splash → Onboarding (first time) → WebView
  * Splash → WebView (subsequent launches)
@@ -79,13 +78,13 @@ data class NavigationState(
 fun AppNavigation() {
     // Get Android context for SharedPreferences and Update Service
     val context = LocalContext.current
-    
+
     // Initialize preference manager and update service
     val preferenceManager = remember { PreferenceManager(context) }
-    val updateService = remember { 
-        UpdateCheckerService(context as ComponentActivity) 
+    val updateService = remember {
+        UpdateCheckerService(context as ComponentActivity)
     }
-    
+
     // Navigation state management
     var navigationState by remember {
         mutableStateOf(NavigationState())
@@ -100,14 +99,12 @@ fun AppNavigation() {
             forceCheck = false,
             onUpdateDialog = { appUpdateInfo ->
                 navigationState = navigationState.copy(
-                    showUpdateDialog = true,
-                    updateInfo = appUpdateInfo
+                    showUpdateDialog = true, updateInfo = appUpdateInfo
                 )
             },
             onNoUpdate = {
                 // No update available, continue with normal flow
-            }
-        )
+            })
     }
 
     // ========================================================================
@@ -118,13 +115,13 @@ fun AppNavigation() {
             Screen.Splash -> {
                 // Show splash for 3 seconds
                 delay(3000)
-                
+
                 // Check if user has completed onboarding
                 val hasCompletedOnboarding = preferenceManager.isOnboardingCompleted()
-                
+
                 // Navigate based on onboarding status
                 navigationState = navigationState.copy(
-                    currentScreen = if (hasCompletedOnboarding) Screen.WebView else Screen.Onboarding,
+                    currentScreen = /*if (hasCompletedOnboarding) Screen.WebView else*/ Screen.Onboarding,
                     isLoading = false,
                     hasSeenOnboarding = hasCompletedOnboarding
                 )
@@ -141,20 +138,18 @@ fun AppNavigation() {
                 if (preferenceManager.isFirstLaunch()) {
                     preferenceManager.setFirstLaunchCompleted()
                 }
-                
+
                 // Check for updates again when WebView loads (less frequent)
                 updateService.checkForUpdatesIfNeeded(
                     forceCheck = false,
                     onUpdateDialog = { appUpdateInfo ->
                         navigationState = navigationState.copy(
-                            showUpdateDialog = true,
-                            updateInfo = appUpdateInfo
+                            showUpdateDialog = true, updateInfo = appUpdateInfo
                         )
                     },
                     onNoUpdate = {
                         // No update available
-                    }
-                )
+                    })
             }
 
             Screen.Error -> {
@@ -173,23 +168,16 @@ fun AppNavigation() {
         onUpdateNow = {
             // User chose to update now
             navigationState.updateInfo?.let { updateInfo ->
-                updateService.startFlexibleUpdate(
-                    appUpdateInfo = updateInfo,
-                    onUpdateStarted = {
-                        navigationState = navigationState.copy(
-                            showUpdateDialog = false,
-                            showUpdateProgress = true,
-                            updateProgress = 0
-                        )
-                    },
-                    onError = { error ->
-                        // Handle update start error
-                        navigationState = navigationState.copy(
-                            showUpdateDialog = false,
-                            showUpdateProgress = false
-                        )
-                    }
-                )
+                updateService.startFlexibleUpdate(appUpdateInfo = updateInfo, onUpdateStarted = {
+                    navigationState = navigationState.copy(
+                        showUpdateDialog = false, showUpdateProgress = true, updateProgress = 0
+                    )
+                }, onError = { error ->
+                    // Handle update start error
+                    navigationState = navigationState.copy(
+                        showUpdateDialog = false, showUpdateProgress = false
+                    )
+                })
             }
         },
         onUpdateLater = {
@@ -203,8 +191,7 @@ fun AppNavigation() {
             navigationState = navigationState.copy(
                 showUpdateDialog = false
             )
-        }
-    )
+        })
 
     // ========================================================================
     // UPDATE PROGRESS DIALOG
@@ -218,8 +205,7 @@ fun AppNavigation() {
             navigationState = navigationState.copy(
                 showUpdateProgress = false
             )
-        }
-    )
+        })
 
     // ========================================================================
     // SCREEN RENDERING - DISPLAY APPROPRIATE SCREEN
@@ -230,8 +216,7 @@ fun AppNavigation() {
                 onSplashFinished = {
                     // This callback is handled by LaunchedEffect above
                     // but kept for potential future use
-                }
-            )
+                })
         }
 
         Screen.Onboarding -> {
@@ -240,46 +225,36 @@ fun AppNavigation() {
                     // User completed onboarding
                     preferenceManager.setOnboardingCompleted()
                     navigationState = navigationState.copy(
-                        currentScreen = Screen.WebView,
-                        hasSeenOnboarding = true
+                        currentScreen = Screen.WebView, hasSeenOnboarding = true
                     )
-                }
-            )
+                })
         }
 
         Screen.WebView -> {
             WebViewScreen(
                 content = WebViewContent(
-                    type = ContentType.URL, 
-                    data = AppConstants.APP_BASE_URL
-                ), 
-                onPageFinished = { url ->
-                    // Handle page finished - can be used for analytics
-                }, 
-                onPageStarted = { url ->
-                    // Handle page started - can be used for analytics
-                }, 
-                onError = { errorType, message ->
-                    // Handle WebView errors
-                    // Currently commented out to use internal error handling
-                    /*navigationState = navigationState.copy(
-                        currentScreen = Screen.Error, 
-                        errorMessage = message
-                    )*/
-                }
-            )
+                type = ContentType.URL, data = AppConstants.APP_BASE_URL
+            ), onPageFinished = { url ->
+                // Handle page finished - can be used for analytics
+            }, onPageStarted = { url ->
+                // Handle page started - can be used for analytics
+            }, onError = { errorType, message ->
+                // Handle WebView errors
+                // Currently commented out to use internal error handling
+                /*navigationState = navigationState.copy(
+                    currentScreen = Screen.Error,
+                    errorMessage = message
+                )*/
+            })
         }
 
         Screen.Error -> {
             ErrorScreen(
-                message = navigationState.errorMessage ?: "An error occurred", 
-                onRetry = {
+                message = navigationState.errorMessage ?: "An error occurred", onRetry = {
                     navigationState = navigationState.copy(
-                        currentScreen = Screen.WebView, 
-                        errorMessage = null
+                        currentScreen = Screen.WebView, errorMessage = null
                     )
-                }
-            )
+                })
         }
     }
 }
@@ -287,14 +262,13 @@ fun AppNavigation() {
 /**
  * Error screen composable
  * Displays error information and provides retry functionality
- * 
+ *
  * @param message Error message to display
  * @param onRetry Callback when user clicks retry button
  */
 @Composable
 fun ErrorScreen(
-    message: String, 
-    onRetry: () -> Unit
+    message: String, onRetry: () -> Unit
 ) {
     // Simple error screen - you can customize this
     androidx.compose.foundation.layout.Box(
@@ -309,8 +283,7 @@ fun ErrorScreen(
                 style = androidx.compose.material3.MaterialTheme.typography.headlineMedium
             )
             androidx.compose.material3.Text(
-                text = message, 
-                modifier = androidx.compose.ui.Modifier.padding(16.dp)
+                text = message, modifier = androidx.compose.ui.Modifier.padding(16.dp)
             )
             androidx.compose.material3.Button(
                 onClick = onRetry
