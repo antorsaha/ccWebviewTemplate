@@ -263,12 +263,32 @@ fun WebViewScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    CircularProgressIndicator(modifier = Modifier.size(48.dp))
-                    Text(
-                        text = if (isRetrying) stringResource(R.string.connecting) else stringResource(R.string.loading),
-                        modifier = Modifier.padding(top = 16.dp),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                    // White background container for loading indicator
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = Color.White,
+                                shape = MaterialTheme.shapes.medium
+                            )
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(48.dp),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = if (isRetrying) stringResource(R.string.connecting) else stringResource(R.string.loading),
+                                modifier = Modifier.padding(top = 16.dp),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
                 }
             }
 
